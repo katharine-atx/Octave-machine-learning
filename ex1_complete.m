@@ -9,8 +9,8 @@ clear ; close all; clc
 %   A = WARMUPEXERCISE() is an example function that returns the 5x5 identity matrix
 
 function A = warmUpExercise()
-A = [];
-A = eye(5);
+	A = [];
+	A = eye(5);
 end
 
 fprintf('Running warmUpExercise ... \n');
@@ -30,11 +30,11 @@ m = length(y); % number of training examples
 %   population and profit.
 
 function plotData(x, y)
-figure; 
-% opens a new figure window
-plot (x,y, 'rx', 'MarkerSize', 10);
-ylabel ('Profit in $10,000s');
-xlabel ('Population of City in 10,000s');
+	figure; 
+	% opens a new figure window
+	plot (x,y, 'rx', 'MarkerSize', 10);
+	ylabel ('Profit in $10,000s');
+	xlabel ('Population of City in 10,000s');
 end
 
 plotData(X, y);
@@ -54,9 +54,9 @@ alpha = 0.01;
 %   parameter for linear regression to fit the data points in X and y
 
 function J = computeCost(X, y, theta)
-m = length(y); % initialize useful values: number of training examples
-J = 0;  %You need to return this variable correctly 
-J = (2*m)^-1 * sum(((theta' * X')' - y).^2);
+	m = length(y); % initialize useful values: number of training examples
+	J = 0;  %You need to return this variable correctly 
+	J = (2*m)^-1 * sum(((theta' * X')' - y).^2);
 end
 
 computeCost(X, y, theta); % compute and display initial cost
@@ -67,11 +67,11 @@ computeCost(X, y, theta); % compute and display initial cost
 %   taking num_iters gradient steps with learning rate alpha
 
 function [theta, J_history] = gradientDescent(X, y, theta, alpha, num_iters)
-m = length(y); % number of training examples
-J_history = zeros(num_iters, 1); %initialize other values
-for iter = 1:num_iters
-theta = theta - alpha * ((1/m) * ((X * theta) - y)' * X)';
-    J_history(iter) = computeCost(X, y, theta); % Save the cost J in every iteration 
+	m = length(y); % number of training examples
+	J_history = zeros(num_iters, 1); %initialize other values
+	for iter = 1:num_iters
+		theta = theta - alpha * ((1/m) * ((X * theta) - y)' * X)';
+		J_history(iter) = computeCost(X, y, theta); % Save the cost J in every iteration 
 	end
 end
 
