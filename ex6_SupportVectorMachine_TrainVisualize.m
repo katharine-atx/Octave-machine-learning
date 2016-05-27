@@ -7,6 +7,19 @@ clear ; close all; clc
 
 % Functions:
 
+function plotData(X, y)
+	% plots the data points with + for the positive examples
+	% and o for the negative examples. X is assumed to be a Mx2 matrix.
+	% Note: This was slightly modified such that it expects y = 1 or y = 0
+	% Find Indices of Positive and Negative Examples...
+	pos = find(y == 1); neg = find(y == 0);
+	% Plot Examples
+	plot(X(pos, 1), X(pos, 2), 'k+','LineWidth', 1, 'MarkerSize', 7)
+	hold on;
+	plot(X(neg, 1), X(neg, 2), 'ko', 'MarkerFaceColor', 'y', 'MarkerSize', 7)
+	hold off;
+end
+
 function visualizeBoundaryLinear(X, y, model)
 	% plots a linear decision boundary learned by the SVM 
 	% and overlays the data.
@@ -20,20 +33,42 @@ function visualizeBoundaryLinear(X, y, model)
 	hold off
 end
 
+function visualizeBoundary(X, y, model, varargin)
+	% plots a non-linear decision boundary learned by the SVM
+	% and overlays the data
+	plotData(X, y)
+	% Make classification predictions over a grid of values
+	x1plot = linspace(min(X(:,1)), max(X(:,1)), 100)';
+	x2plot = linspace(min(X(:,2)), max(X(:,2)), 100)';
+	[X1, X2] = meshgrid(x1plot, x2plot);
+	vals = zeros(size(X1));
+	for i = 1:size(X1, 2)
+	   this_X = [X1(:, i), X2(:, i)];
+	   vals(:, i) = svmPredict(model, this_X);
+	end
+	% Plot the SVM boundary
+	hold on
+	contour(X1, X2, vals ,[1 1], 'Color');
+	hold off;
+end
+
+function sim = linearKernel(x1, x2)
+	% returns a linear kernel between x1 and x2
+	% and returns the value in sim
+	% Ensure that x1 and x2 are column vectors
+	x1 = x1(:); x2 = x2(:);
+	% Compute the kernel
+	sim = x1' * x2;  % dot product
+end
+
 function sim = gaussianKernel(x1, x2, sigma)
 	% returns a gaussian kernel between x1 and x2 and returns the value in sim.
 	% Ensuring that x1 and x2 are column vectors...
 	x1 = x1(:); x2 = x2(:);
 	% Initialize values...
 	sim = 0;
-
-	% ====================== YOUR CODE HERE ======================
-	% Instructions: Fill in this function to return the similarity between x1
-	%               and x2 computed using a Gaussian kernel with bandwidth
-	%               sigma
-	sigma...?
-	sim = 
-	% =============================================================
+	% gaussian kernel similarity forumla...
+	sim = exp(-sum((x1 - x2).^2)/ (2 * sigma^2));
 end
 
 function [C, sigma] = dataset3Params(X, y, Xval, yval)
@@ -42,14 +77,22 @@ function [C, sigma] = dataset3Params(X, y, Xval, yval)
 	% Initialize values...
 	C = 1;
 	sigma = 0.3;
-
-	% ====================== YOUR CODE HERE ======================
-	% Instructions: Fill in this function to return the optimal C and sigma
-	%               learning parameters found using the cross validation set.
-	predictions = svmPredict(model, Xval);
-	meanError = mean(double(predictions ~= yval));
-	C = 
-	sigma = 
+	% We are looping over values of C and sigma and need to capture running 
+	% error of each choice. Initialize at infinite...
+	runningError = Inf;
+	% Testing error across 8 possible values for C and sigma...
+	for valueC = [0.01 0.03 0.1 0.3 1 3 10 30]
+		for valueSigma = [0.01 0.03 0.1 0.3 1 3 10 30]
+			model = svmTrain(X, y, valueC, @(x1, x2) gaussianKernel(x1, x2, valueSigma));
+			predictions = svmPredict(model, Xval);
+			meanError = mean(double(predictions ~= yval));
+			if meanError < runningError
+			  runningError = meanError;
+			  C = valueC;
+			  sigma = valueSigma;
+			end
+		end
+	end
 end
 
 function [model] = svmTrain(X, Y, C, kernelFunction, ...
@@ -197,23 +240,51 @@ function [model] = svmTrain(X, Y, C, kernelFunction, ...
 	model.w = ((alphas.*Y)'*X)';
 end
 
-function visualizeBoundary(X, y, model, varargin)
-	% plots a non-linear decision boundary learned by the SVM 
-	% and overlays the data
-	plotData(X, y)
-	% Make classification predictions over a grid of values
-	x1plot = linspace(min(X(:,1)), max(X(:,1)), 100)';
-	x2plot = linspace(min(X(:,2)), max(X(:,2)), 100)';
-	[X1, X2] = meshgrid(x1plot, x2plot);
-	vals = zeros(size(X1));
-	for i = 1:size(X1, 2)
-	   this_X = [X1(:, i), X2(:, i)];
-	   vals(:, i) = svmPredict(model, this_X);
+
+function pred = svmPredict(model, X)
+	% returns a vector of predictions using a trained SVM model (svmTrain). 
+	% X is a mxn matrix where there each example is a row. model is a svm 
+	% model returned from svmTrain. predictions pred is a m x 1 column of 
+	% predictions of {0, 1} values.
+	% Check if we are getting a column vector, if so, then assume that we only
+	% need to do prediction for a single example
+	if (size(X, 2) == 1)
+		% Examples should be in rows
+		X = X';
 	end
-	% Plot the SVM boundary
-	hold on
-	contour(X1, X2, vals, [0 0], 'Color', 'b');
-	hold off;
+	% Dataset 
+	m = size(X, 1);
+	p = zeros(m, 1);
+	pred = zeros(m, 1);
+	if strcmp(func2str(model.kernelFunction), 'linearKernel')
+		% We can use the weights and bias directly if working with the 
+		% linear kernel
+		p = X * model.w + model.b;
+	elseif strfind(func2str(model.kernelFunction), 'gaussianKernel')
+		% Vectorized RBF Kernel
+		% This is equivalent to computing the kernel on every pair of examples
+		X1 = sum(X.^2, 2);
+		X2 = sum(model.X.^2, 2)';
+		K = bsxfun(@plus, X1, bsxfun(@plus, X2, - 2 * X * model.X'));
+		K = model.kernelFunction(1, 0) .^ K;
+		K = bsxfun(@times, model.y', K);
+		K = bsxfun(@times, model.alphas', K);
+		p = sum(K, 2);
+	else
+		% Other Non-linear kernel
+		for i = 1:m
+			prediction = 0;
+			for j = 1:size(model.X, 1)
+				prediction = prediction + ...
+					model.alphas(j) * model.y(j) * ...
+					model.kernelFunction(X(i,:)', model.X(j,:)');
+			end
+			p(i) = prediction + model.b;
+		end
+	end
+	% Convert predictions into 0 / 1
+	pred(p >= 0) =  1;
+	pred(p <  0) =  0;
 end
 
 % Script...
@@ -285,4 +356,6 @@ model= svmTrain(X, y, C, @(x1, x2) gaussianKernel(x1, x2, sigma));
 visualizeBoundary(X, y, model);
 fprintf('Program paused. Press enter to continue.\n');
 pause;
+
+
 
